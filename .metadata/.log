@@ -1,0 +1,41 @@
+!SESSION 2024-05-25 23:30:46.432 -----------------------------------------------
+eclipse.buildId=Version 1.15.1
+java.version=17.0.8.1
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=macosx, ARCH=x86_64, WS=cocoa, NL=ko_KR
+Framework arguments:  -keyring /Users/seokwon-yoon/.eclipse_keyring
+Command-line arguments:  -os macosx -ws cocoa -arch x86_64 -keyring /Users/seokwon-yoon/.eclipse_keyring
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2024-05-25 23:32:35.436
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2024-05-25 23:32:35.439
+!MESSAGE Log4j2 initialized with config file /Users/seokwon-yoon/Documents/GitHub/stm32-robot/.metadata/.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2024-05-25 23:32:43.422
+!MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2024-05-25 23:32:47.551
+!MESSAGE ProjectImporter: already registered
+!SESSION 2024-05-25 23:35:58.878 -----------------------------------------------
+eclipse.buildId=Version 1.15.1
+java.version=17.0.8.1
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=macosx, ARCH=x86_64, WS=cocoa, NL=ko_KR
+Framework arguments:  -keyring /Users/seokwon-yoon/.eclipse_keyring
+Command-line arguments:  -os macosx -ws cocoa -arch x86_64 -keyring /Users/seokwon-yoon/.eclipse_keyring
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2024-05-25 23:36:29.885
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2024-05-25 23:36:29.887
+!MESSAGE Log4j2 initialized with config file /Users/seokwon-yoon/Documents/GitHub/stm32-robot/.metadata/.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2024-05-25 23:36:34.785
+!MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2024-05-25 23:36:38.988
+!MESSAGE ProjectImporter: already registered
+
+!ENTRY org.eclipse.cdt.core 1 0 2024-05-25 23:42:52.878
+!MESSAGE Indexed 'stm32-robot' (20 sources, 79 headers) in 5.78 sec: 4,136 declarations; 17,899 references; 0 unresolved inclusions; 1 syntax errors; 2 unresolved names (0.0091%)
