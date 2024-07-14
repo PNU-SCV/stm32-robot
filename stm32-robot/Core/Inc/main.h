@@ -7,7 +7,7 @@
   ******************************************************************************
   * @attention
   *
-  * Copyright (c) 2024 STMicroelectronics.
+  * (C)opyright 2024 STMicroelectronics.
   * All rights reserved.
   *
   * This software is licensed under terms that can be found in the LICENSE file
@@ -54,6 +54,26 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 
+#define ESP32_UART_BAUD 115200
+
+#define CMD_STOP (uint8_t)0x00
+#define CMD_FORWARD (uint8_t)0x01
+#define CMD_CLOCKWISE_ROTATE (uint8_t)0x02
+#define CMD_COUNTERCLOCKWISE_ROTATE (uint8_t)0x03
+
+#define NO_OBSTACLE (uint8_t)0x00
+#define LEFT_OBSTACLE (uint8_t)0x01
+#define MID_OBSTACLE (uint8_t)0x02
+#define RIGHT_OBSTACLE (uint8_t)0x03
+
+typedef struct {
+    uint8_t status;
+} ESP32SendData;
+
+typedef struct {
+    uint8_t cmd;
+} ESP32RecvData;
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -74,6 +94,17 @@ void Error_Handler(void);
 #define SWO_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
+#define LEFT_Motor_Pin GPIO_PIN_12
+#define LEFT_Motor_GPIO_Port GPIOB
+#define RIGHT_Motor_Pin GPIO_PIN_13
+#define RIGHT_Motor_GPIO_Port GPIOB
+
+#define LEFT_Prox_Pin GPIO_PIN_0
+#define LEFT_Prox_GPIO_Port GPIOC
+#define MID_Prox_Pin GPIO_PIN_1
+#define MID_Prox_GPIO_Port GPIOC
+#define RIGHT_Prox_Pin GPIO_PIN_2
+#define RIGHT_Prox_GPIO_Port GPIOC
 
 /* USER CODE END Private defines */
 
