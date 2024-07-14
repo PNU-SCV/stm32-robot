@@ -65,3 +65,16 @@ Command-line arguments:  -os macosx -ws cocoa -arch x86_64 -keyring /Users/seokw
 
 !ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2024-07-14 16:19:55.939
 !MESSAGE Started RMI Server, listening on port 41337
+!SESSION 2024-07-14 23:11:51.989 -----------------------------------------------
+eclipse.buildId=Version 1.15.1
+java.version=17.0.8.1
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=macosx, ARCH=x86_64, WS=cocoa, NL=ko_KR
+Framework arguments:  -keyring /Users/seokwon-yoon/.eclipse_keyring
+Command-line arguments:  -os macosx -ws cocoa -arch x86_64 -keyring /Users/seokwon-yoon/.eclipse_keyring
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2024-07-14 23:12:02.607
+!MESSAGE Log4j2 initialized with config file /Users/seokwon-yoon/Documents/GitHub/stm32-robot/.metadata/.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2024-07-14 23:12:13.381
+!MESSAGE Started RMI Server, listening on port 41337

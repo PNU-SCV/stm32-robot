@@ -142,7 +142,6 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI_DIV2;
   RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL16;
-
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -171,7 +170,6 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.Mode = UART_MODE_TX_RX;
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-
   if (HAL_UART_Init(&huart1) != HAL_OK)
   {
     Error_Handler();
@@ -188,7 +186,6 @@ static void MX_USART2_UART_Init(void)
   huart2.Init.Mode = UART_MODE_TX_RX;
   huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-
   if (HAL_UART_Init(&huart2) != HAL_OK)
   {
     Error_Handler();
@@ -205,7 +202,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Pin|RIGHT_Motor_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Forward_Pin|LEFT_Motor_Backward_Pin|RIGHT_Motor_Forward_Pin|RIGHT_Motor_Backward_Pin, GPIO_PIN_RESET);
 
   GPIO_InitStruct.Pin = B1_Pin|LEFT_Prox_Pin|MID_Prox_Pin|RIGHT_Prox_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
@@ -218,7 +215,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = LEFT_Motor_Pin|RIGHT_Motor_Pin;
+  GPIO_InitStruct.Pin = LEFT_Motor_Forward_Pin|LEFT_Motor_Backward_Pin|RIGHT_Motor_Forward_Pin|RIGHT_Motor_Backward_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -281,24 +278,34 @@ void ControlMotors(uint8_t cmd)
   switch(cmd)
   {
     case CMD_STOP:
-      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Pin, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Forward_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Backward_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Forward_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Backward_Pin, GPIO_PIN_RESET);
       break;
     case CMD_FORWARD:
-      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Pin, GPIO_PIN_SET);
-      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Forward_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Backward_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Forward_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Backward_Pin, GPIO_PIN_RESET);
       break;
     case CMD_CLOCKWISE_ROTATE:
-      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Pin, GPIO_PIN_SET);
-      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Forward_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Backward_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Forward_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Backward_Pin, GPIO_PIN_SET);
       break;
     case CMD_COUNTERCLOCKWISE_ROTATE:
-      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Pin, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Forward_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Backward_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Forward_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Backward_Pin, GPIO_PIN_RESET);
       break;
     default:
-      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Pin, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Forward_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Backward_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Forward_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, RIGHT_Motor_Backward_Pin, GPIO_PIN_RESET);
       break;
   }
 }
