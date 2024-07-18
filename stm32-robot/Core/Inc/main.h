@@ -94,10 +94,15 @@ typedef struct {
 #define SWO_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define LEFT_Motor_Forward_Pin GPIO_PIN_12
-#define LEFT_Motor_Backward_Pin GPIO_PIN_13
-#define RIGHT_Motor_Forward_Pin GPIO_PIN_14
-#define RIGHT_Motor_Backward_Pin GPIO_PIN_15
+#define USART1_TX_Pin GPIO_PIN_9
+#define USART1_TX_GPIO_Port GPIOA
+#define USART1_RX_Pin GPIO_PIN_10
+#define USART1_RX_GPIO_Port GPIOA
+
+#define LEFT_Motor_Forward_Pin GPIO_PIN_11
+#define LEFT_Motor_Backward_Pin GPIO_PIN_12
+#define RIGHT_Motor_Forward_Pin GPIO_PIN_13
+#define RIGHT_Motor_Backward_Pin GPIO_PIN_14
 #define LEFT_Motor_GPIO_Port GPIOB
 #define RIGHT_Motor_GPIO_Port GPIOB
 
