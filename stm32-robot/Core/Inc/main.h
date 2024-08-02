@@ -106,6 +106,7 @@ typedef struct {
 #define LEFT_Motor_GPIO_Port GPIOB
 #define RIGHT_Motor_GPIO_Port GPIOB
 
+#define Prox_GPIO_Port GPIOC
 #define LEFT_Prox_Pin GPIO_PIN_0
 #define LEFT_Prox_GPIO_Port GPIOC
 #define MID_Prox_Pin GPIO_PIN_1
