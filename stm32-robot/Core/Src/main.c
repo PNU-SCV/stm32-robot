@@ -17,7 +17,6 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include <stm32f1xx_hal_gpio.h>
 #include "main.h"
 #include "cmsis_os.h"
 
@@ -62,9 +61,6 @@ const osThreadAttr_t motorControlTask_attributes = {
   .priority = (osPriority_t) osPriorityNormal,
 };
 
-const osMessageQueueAttr_t proxQueue_attributes = {
-  .name = "proxQueue"
-};
 
 const osMessageQueueAttr_t cmdQueue_attributes = {
   .name = "cmdQueue"
@@ -74,12 +70,9 @@ const osTimerAttr_t watchdogTimer_attributes = {
   .name = "watchdogTimer"
 };
 
-typedef struct {
-  uint16_t GPIO_Pin;
-} ProxSensorEvent;
-
 /* USER CODE BEGIN PV */
 volatile uint8_t proxStatus = NO_OBSTACLE;
+volatile uint8_t motorStatus = CMD_STOP;
 ESP32RecvData uart1_rx_buffer;
 
 volatile uint8_t proxFlag = 0;
@@ -96,7 +89,6 @@ static void MX_USART1_UART_Init(void);
 void StartDefaultTask(void *argument);
 void StartMotorControlTask(void *argument);
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
-void ProcessProximitySensors(ProxSensorEvent* event);
 void SendProximityDataToESP32(uint8_t status);
 void ControlMotors(uint8_t cmd);
 void WatchdogTimerCallback(void *argument);
@@ -129,7 +121,6 @@ int main(void)
 
   osKernelInitialize();
 
-  proxQueueHandle = osMessageQueueNew(10, sizeof(ProxSensorEvent), &proxQueue_attributes);
   cmdQueueHandle = osMessageQueueNew(10, sizeof(ESP32RecvData), &cmdQueue_attributes);
   watchdogTimerHandle = osTimerNew(WatchdogTimerCallback, osTimerOnce, NULL, &watchdogTimer_attributes);
 
@@ -205,7 +196,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Forward_Pin|LEFT_Motor_Backward_Pin|RIGHT_Motor_Forward_Pin|RIGHT_Motor_Backward_Pin, GPIO_PIN_RESET);
 
   GPIO_InitStruct.Pin = B1_Pin|LEFT_Prox_Pin|MID_Prox_Pin|RIGHT_Prox_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
@@ -249,14 +240,18 @@ static void MX_GPIO_Init(void)
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  if(proxFlag == 0 && (GPIO_Pin == LEFT_Prox_Pin || GPIO_Pin == MID_Prox_Pin || GPIO_Pin == RIGHT_Prox_Pin))
+  if(GPIO_Pin == LEFT_Prox_Pin || GPIO_Pin == MID_Prox_Pin || GPIO_Pin == RIGHT_Prox_Pin)
   {
-    proxFlag = 1;
-    proxGPIO_Pin = GPIO_Pin;
+	  proxFlag = 1;
 
-    proxStatus = !HAL_GPIO_ReadPin(Prox_GPIO_Port, proxGPIO_Pin);
-
-    HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	  if (HAL_GPIO_ReadPin(GPIOC, GPIO_Pin) == GPIO_PIN_SET) {
+		  proxStatus = 0;
+		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+	  } else {
+		  proxStatus = GPIO_Pin + 1;
+		  ControlMotors(CMD_STOP);
+		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+	  }
   }
 }
 
@@ -269,26 +264,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     HAL_UART_Receive_IT(&huart1, (uint8_t*)&uart1_rx_buffer, sizeof(uart1_rx_buffer));
     uartFlag = 1;
     uartCmd = uart1_rx_buffer;
-    osTimerStart(watchdogTimerHandle, 1000); // 1 second watchdog timer
   }
-}
-
-void ProcessProximitySensors(ProxSensorEvent* event)
-{
-  if(event->GPIO_Pin == LEFT_Prox_Pin)
-  {
-    proxStatus = LEFT_OBSTACLE;
-  }
-  else if(event->GPIO_Pin == MID_Prox_Pin)
-  {
-    proxStatus = MID_OBSTACLE;
-  }
-  else if(event->GPIO_Pin == RIGHT_Prox_Pin)
-  {
-    proxStatus = RIGHT_OBSTACLE;
-  }
-
-  SendProximityDataToESP32(proxStatus);
 }
 
 void SendProximityDataToESP32(uint8_t status)
@@ -350,44 +326,32 @@ void StartDefaultTask(void *argument)
 
 void StartMotorControlTask(void *argument)
 {
-  ESP32RecvData recvData;
-  ProxSensorEvent proxEvent;
+	ESP32RecvData recvData;
 
-  ControlMotors(CMD_FORWARD);
+	ControlMotors(CMD_FORWARD);
 
-  for(;;)
-  {
-    if(proxFlag)
-    {
-      proxFlag = 0;
-      proxEvent.GPIO_Pin = proxGPIO_Pin;
-      osMessageQueuePut(proxQueueHandle, &proxEvent, 0, 0);
-    }
+	for(;;)
+	{
+		if(proxFlag)
+		{
+			proxFlag = 0;
 
-    if(uartFlag)
-    {
-      uartFlag = 0;
-      recvData.cmd = uartCmd.cmd;
-      osMessageQueuePut(cmdQueueHandle, &recvData, 0, 0);
-    }
+			SendProximityDataToESP32(proxStatus);
+		}
 
-    if(osMessageQueueGet(proxQueueHandle, &proxEvent, NULL, 0) == osOK)
-    {
-      ProcessProximitySensors(&proxEvent);
+		if(uartFlag)
+		{
+			uartFlag = 0;
+			recvData.cmd = uartCmd.cmd;
 
-      if(proxStatus != NO_OBSTACLE)
-      {
-        ControlMotors(CMD_STOP);
-      }
-    }
+			osTimerStart(watchdogTimerHandle, 1000); // 1 second watchdog timer
 
-    if(osMessageQueueGet(cmdQueueHandle, &recvData, NULL, 0) == osOK)
-    {
-      ControlMotors(recvData.cmd);
-    }
+			if(proxStatus == NO_OBSTACLE)
+				ControlMotors(recvData.cmd);
+		}
 
-    osDelay(100);
-  }
+		osDelay(10);
+	}
 }
 
 void Error_Handler(void)
