@@ -114,6 +114,16 @@ typedef struct {
 #define RIGHT_Prox_Pin GPIO_PIN_2
 #define RIGHT_Prox_GPIO_Port GPIOC
 
+#define LEFT_Light_Red_Port GPIOB
+#define LEFT_Light_Red_Pin GPIO_PIN_8
+#define LEFT_Light_Green_Port GPIOC
+#define LEFT_Light_Green_Pin GPIO_PIN_9
+
+#define RIGHT_Light_Red_Port GPIOC
+#define RIGHT_Light_Red_Pin GPIO_PIN_6
+#define RIGHT_Light_Green_Port GPIOC
+#define RIGHT_Light_Green_Pin GPIO_PIN_8
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
