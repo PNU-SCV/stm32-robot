@@ -19,6 +19,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
+#include "semphr.h"
+#include "queue.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -45,25 +47,37 @@ UART_HandleTypeDef huart1;
 
 osThreadId_t defaultTaskHandle;
 osThreadId_t motorControlTaskHandle;
+osThreadId_t lightControlTaskHandle;
+
 osMessageQueueId_t proxQueueHandle;
 osMessageQueueId_t cmdQueueHandle;
 osTimerId_t watchdogTimerHandle;
 
+SemaphoreHandle_t motorStatusSemaphore;
+
+QueueHandle_t recvCmdQueue;
+
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityLow,
 };
 
 const osThreadAttr_t motorControlTask_attributes = {
   .name = "motorControlTask",
   .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
+};
+
+const osThreadAttr_t lightControlTask_attributes = {
+  .name = "lightControlTask",
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 
 
-const osMessageQueueAttr_t cmdQueue_attributes = {
-  .name = "cmdQueue"
+const osMessageQueueAttr_t recvCmdQueue_attributes = {
+  .name = "recvCmdQueue"
 };
 
 const osTimerAttr_t watchdogTimer_attributes = {
@@ -86,11 +100,17 @@ volatile uint8_t obstacle_flag = 0;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
+
 void StartDefaultTask(void *argument);
-void StartMotorControlTask(void *argument);
+void MotorControlTask(void *argument);
+void LightControlTask(void *argument);
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
 void SendProximityDataToESP32(uint8_t status);
 void ControlMotors(uint8_t cmd);
+void ControlLights(uint8_t motor_status);
+void ResetLights(void);
+
 void WatchdogTimerCallback(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -121,13 +141,18 @@ int main(void)
 
   osKernelInitialize();
 
-  cmdQueueHandle = osMessageQueueNew(10, sizeof(ESP32RecvData), &cmdQueue_attributes);
+  motorStatusSemaphore = xSemaphoreCreateBinary();
+
+  recvCmdQueue = xQueueCreate(10, sizeof(ESP32RecvData));
+
   watchdogTimerHandle = osTimerNew(WatchdogTimerCallback, osTimerOnce, NULL, &watchdogTimer_attributes);
 
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
-  motorControlTaskHandle = osThreadNew(StartMotorControlTask, NULL, &motorControlTask_attributes);
+  lightControlTaskHandle = osThreadNew(LightControlTask, NULL, &lightControlTask_attributes);
+  motorControlTaskHandle = osThreadNew(MotorControlTask, NULL, &motorControlTask_attributes);
 
   osTimerStart(watchdogTimerHandle, 1000);
+  xSemaphoreGive(motorStatusSemaphore);
 
   HAL_UART_Receive_IT(&huart1, (uint8_t*)&uart1_rx_buffer, sizeof(uart1_rx_buffer));
 
@@ -212,6 +237,31 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  // 2. 왼쪽 빨간색 라이트 (GPIOB_PIN_8) 초기화 (Push-Pull Output)
+      GPIO_InitStruct.Pin = LEFT_Light_Red_Pin;
+      GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;  // Push-Pull Output 모드
+      GPIO_InitStruct.Pull = GPIO_NOPULL;          // 내부 Pull-up/Pull-down 사용 안함
+      GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW; // 속도 설정 (LOW, MEDIUM, HIGH 가능)
+      HAL_GPIO_Init(LEFT_Light_Red_Port, &GPIO_InitStruct);
+
+      // 3. 왼쪽 초록색 라이트 (GPIOC_PIN_9) 초기화 (Push-Pull Output)
+      GPIO_InitStruct.Pin = LEFT_Light_Green_Pin;
+      HAL_GPIO_Init(LEFT_Light_Green_Port, &GPIO_InitStruct);
+
+      // 4. 오른쪽 빨간색 라이트 (GPIOC_PIN_6) 초기화 (Push-Pull Output)
+      GPIO_InitStruct.Pin = RIGHT_Light_Red_Pin;
+      HAL_GPIO_Init(RIGHT_Light_Red_Port, &GPIO_InitStruct);
+
+      // 5. 오른쪽 초록색 라이트 (GPIOC_PIN_8) 초기화 (Push-Pull Output)
+      GPIO_InitStruct.Pin = RIGHT_Light_Green_Pin;
+      HAL_GPIO_Init(RIGHT_Light_Green_Port, &GPIO_InitStruct);
+
+      // 6. 초기 상태로 모든 핀을 RESET 상태로 설정 (OFF)
+      HAL_GPIO_WritePin(LEFT_Light_Red_Port, LEFT_Light_Red_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(LEFT_Light_Green_Port, LEFT_Light_Green_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(RIGHT_Light_Red_Port, RIGHT_Light_Red_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(RIGHT_Light_Green_Port, RIGHT_Light_Green_Pin, GPIO_PIN_RESET);
+
   HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
@@ -257,13 +307,17 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-  HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
+	ESP32RecvData esp32_cmd;
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
   if(huart->Instance == USART1)
   {
     HAL_UART_Receive_IT(&huart1, (uint8_t*)&uart1_rx_buffer, sizeof(uart1_rx_buffer));
-    uartFlag = 1;
-    uartCmd = uart1_rx_buffer;
+    esp32_cmd = uart1_rx_buffer;
+
+    xQueueSendFromISR(recvCmdQueue, &esp32_cmd, &xHigherPriorityTaskWoken);
+
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
   }
 }
 
@@ -278,6 +332,7 @@ void ControlMotors(uint8_t cmd)
 {
   switch(cmd)
   {
+
     case CMD_STOP:
       HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Forward_Pin, GPIO_PIN_RESET);
       HAL_GPIO_WritePin(GPIOB, LEFT_Motor_Backward_Pin, GPIO_PIN_RESET);
@@ -311,6 +366,47 @@ void ControlMotors(uint8_t cmd)
   }
 }
 
+void ControlLights(uint8_t motor_status)
+{
+    switch (motor_status)
+    {
+        case CMD_FORWARD:
+            HAL_GPIO_TogglePin(LEFT_Light_Green_Port, LEFT_Light_Green_Pin);
+            HAL_GPIO_TogglePin(RIGHT_Light_Green_Port, RIGHT_Light_Green_Pin);
+            break;
+
+        case CMD_COUNTERCLOCKWISE_ROTATE:
+            HAL_GPIO_TogglePin(LEFT_Light_Red_Port, LEFT_Light_Red_Pin);
+            HAL_GPIO_TogglePin(LEFT_Light_Green_Port, LEFT_Light_Green_Pin);
+            break;
+
+        case CMD_CLOCKWISE_ROTATE:
+            HAL_GPIO_TogglePin(RIGHT_Light_Red_Port, RIGHT_Light_Red_Pin);
+            HAL_GPIO_TogglePin(RIGHT_Light_Green_Port, RIGHT_Light_Green_Pin);
+            break;
+
+        case CMD_STOP:
+            HAL_GPIO_WritePin(LEFT_Light_Red_Port, LEFT_Light_Red_Pin, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(RIGHT_Light_Red_Port, RIGHT_Light_Red_Pin, GPIO_PIN_SET);
+
+            HAL_GPIO_WritePin(LEFT_Light_Green_Port, LEFT_Light_Green_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(RIGHT_Light_Green_Port, RIGHT_Light_Green_Pin, GPIO_PIN_RESET);
+            break;
+
+        default:
+            break;
+    }
+}
+
+void ResetLight(void)
+{
+	HAL_GPIO_WritePin(LEFT_Light_Red_Port, LEFT_Light_Red_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(LEFT_Light_Green_Port, LEFT_Light_Green_Pin, GPIO_PIN_SET);
+
+	HAL_GPIO_WritePin(RIGHT_Light_Red_Port, RIGHT_Light_Red_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(RIGHT_Light_Green_Port, RIGHT_Light_Green_Pin, GPIO_PIN_SET);
+}
+
 void WatchdogTimerCallback(void *argument)
 {
   ControlMotors(CMD_STOP);
@@ -324,9 +420,10 @@ void StartDefaultTask(void *argument)
   }
 }
 
-void StartMotorControlTask(void *argument)
+void MotorControlTask(void *argument)
 {
-	ESP32RecvData recvData;
+	uint8_t motor_status = 0;
+	ESP32RecvData recv_cmd;
 
 	ControlMotors(CMD_FORWARD);
 
@@ -339,20 +436,50 @@ void StartMotorControlTask(void *argument)
 			SendProximityDataToESP32(proxStatus);
 		}
 
-		if(uartFlag)
+		if(xQueueReceive(recvCmdQueue, &recv_cmd, portMAX_DELAY) == pdPASS)
 		{
-			uartFlag = 0;
-			recvData.cmd = uartCmd.cmd;
-
 			osTimerStart(watchdogTimerHandle, 1000); // 1 second watchdog timer
+			HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
 
-			if(proxStatus == NO_OBSTACLE)
-				ControlMotors(recvData.cmd);
+			if(proxStatus == NO_OBSTACLE && xSemaphoreTake(motorStatusSemaphore, pdMS_TO_TICKS(10)) == pdFALSE) continue;
+
+			motorStatus = recv_cmd.cmd;
+
+			xSemaphoreGive(motorStatusSemaphore);
+
+			motor_status = recv_cmd.cmd;
+
+			ControlMotors(motor_status);
 		}
 
 		osDelay(10);
 	}
 }
+
+void LightControlTask(void *argument)
+{
+	uint8_t cur_motor_status = 0, bef_motor_status = -1;
+
+	for(;;)
+	{
+		if(xSemaphoreTake(motorStatusSemaphore, pdMS_TO_TICKS(10)) == pdFALSE) continue;
+
+		cur_motor_status = motorStatus;
+
+		xSemaphoreGive(motorStatusSemaphore);
+
+		if(cur_motor_status != bef_motor_status) {
+			bef_motor_status = cur_motor_status;
+			ResetLight();
+		}
+
+		ControlLights(cur_motor_status);
+
+		osDelay(500);
+	}
+}
+
+
 
 void Error_Handler(void)
 {
