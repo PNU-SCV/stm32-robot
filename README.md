@@ -93,6 +93,3 @@ The system uses a simple command-response protocol with the ESP32. Below is a br
 
 If an error occurs in the system, the `Error_Handler` function disables all interrupts and enters an infinite loop. This ensures that the error can be debugged safely.
 
-## 6. License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
